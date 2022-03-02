@@ -1,0 +1,212 @@
+//-----------
+
+result is one of
+  0 // success?
+  1 // No printing job! (command 4)
+  2 // Not Support file Format!
+  3
+  4 // File checksum error!
+  5 // Command is incorrect!
+  6 // The printer is currently busy, please try again later!
+
+//------------
+// data returned from some sort of status command
+// not sure what one
+
+  // command 2
+  "bed_temperature":"xx"
+  "extruder1_temperature":"xx"
+  "extruder2_temperature":"xx"
+
+  // command 3, 
+  // result 0 & 2 give e2 informatoin
+  "message":
+  "e1_filament_total":
+  "e1_filament_left":
+  "e1_filament_color":
+  "e2_filament_total":
+  "e2_filament_left":
+  "e2_filament_color":
+
+  // command 4
+  //  if result == 0
+  "print_percentage"
+  "elapsed_time"
+  "estimated_time"
+  // else if result == 1 or 2
+  "message"
+
+  // command 7
+  "error"
+
+  // command 8
+  "print_status"
+  "error"
+
+
+//-----------
+// ???
+
+>  {"command":0}
+<  {"result":5,"command":0,"message":"Command incorrect!"}
+
+//-----------
+// send file, head command
+
+>  {"command":1,"fileName":"temp.gcode","fileLen":5,"ee1":"EE1_OK","ee2":"EE2_OK"}
+<  {"result":1,"command":1,"message":"START_RECEIVE"}
+>  [filebytes]<EOF>
+<  {"result":4,"command":1,"message":"File checksum error!"}
+    // EE1_OK, EE1_NG, EE2_OK, EE2_NG
+	result == 0 // success
+	result == 1 // success?
+	result == 2 // unsupported file format
+    result == 4 // file checksum error
+    result == 5 // invalid command
+    result == 6 // printer buisy
+
+
+//-----------
+// query status
+
+>  {"command":2,"query":"all"}
+<  {"result":0,"command":2,"data":{"p":"dvF110B000","i":"3F11XPGBXTH5320151","v":{"os":"1.1.0.19","app":"1.1.7.3","engine":"N/A"},"w":["W1:--------------","W2:--------------"],"f":[0,0],"t":["--","--"],"j":10,"L":{"m":"4183146537","e":"21785"},"s":{"e":0,"c":0,"j":0,"o":0},"e":2,"b":"--","d":{"message":"No printing job!"},"o":{"p":0,"t":0,"f":0}}}
+
+  // query is all, or one below
+  // data
+    b // bed temperature
+    d // print status? <optional>
+      message // message, or the following
+      print_percentage
+      elapsed_time
+      estimated_time
+    e // error
+    f[2] // fillament left
+    i // machine serial number
+    j // machine state
+    n // printer name
+    o // printer options
+      p
+      t
+      f
+    p // module name or printer type
+    s
+      e
+      c
+      j
+      0
+    t[2] // extruder temperature(s)
+    v
+      app // app version
+      engine // engine version
+      os // os version
+    w[2] // eeprom
+    L
+      e // extruder life
+      m // machine life
+
+//-----------
+// Image capture
+// capture image, or get filament? (ack:START_RECEIVE)
+
+>  {"command":3} // query?
+<  {"result":0,"command":3,"message":"START_SEND","length":136811}
+>  {"ack":"START_RECEIVE"}
+<  [JFIF blob]{"result":0,"command":3,"message":"SEND_FINISH","length":136811}
+   // if result == 0 is success, length is length of data returned
+
+//-----------
+// get print state
+
+>  {"command":4} // query?
+<  {"result":1,"command":4,"message":"No printing job!"}
+    // result
+
+//-----------
+// take photo?
+
+>  {"command":5} // query?
+<  {"result":0,"command":5}
+   // "ack":"START_RECEIVE"
+
+//-----------
+// modify print, 
+
+>  {"command":6,"state":1,"token":x} // pause
+>  {"command":6,"state":2,"token":x} // resume
+>  {"command":6,"state":3,"token":x} // stop
+<  {"result":5,"command":-1,"message":"Command incorrect!"}
+   // token is returned when print starts, possibly the file name?
+   // result // 0,1,2,4,5,6
+
+//-----------
+// get printer error
+
+>  {"command":7} // query?
+<  {"result":2,"command":7,"message":"GET_LOG_ERROR"}
+   // result is the machine state
+   // "error":xxx may be returned in some cases
+
+//-----------
+// get eeprom
+
+>  {"command":8} // query?
+<  {"result":0,"command":8}
+   // "print_status":xxx may be returned in some cases
+   // "error":xxx may be returned in some cases
+
+//-----------
+// get printer information, may not actually work?
+
+>  {"command":9} // query?
+<  {"result":5,"command":9,"message":"Command incorrect!"}
+
+//-----------
+
+=> 23.97.68.32
+
+POST /api/getFilamentUsage?cartridge_sn=B28AC6B135EA5030F4CE1F29AA77DD87&printer_sn=F4FB351AD789262E6482C4BE659705A838632E40FA1442DA93D127A20FC174B3 HTTP/1.1
+Host: xyzlog.xyzprinting.com
+Content-Length: 0
+Connection: Close
+
+<=
+
+HTTP/1.1 200 OK
+Date: Sat, 03 Nov 2018 04:38:42 GMT
+Server: Play! Framework;1.2.5;prod
+Content-Type: application/json; charset=utf-8
+Cache-Control: no-cache
+Content-Length: 2
+Set-Cookie: PLAY_FLASH=;Expires=Sat, 3-Nov-2018 04:38:42 GMT;Path=/
+Set-Cookie: PLAY_ERRORS=;Expires=Sat, 3-Nov-2018 04:38:42 GMT;Path=/
+Set-Cookie: PLAY_SESSION=;Expires=Sat, 3-Nov-2018 04:38:42 GMT;Path=/
+Connection: close
+
+{}
+
+=> 13.66.190.8
+
+GET /api/CheckSerialNumber?sn=F4FB351AD789262E6482C4BE659705A838632E40FA1442DA93D127A20FC174B3 HTTP/1.1
+Host: www.xyzprinting.com
+Connection: Close
+
+<=
+
+HTTP/1.1 200 OK
+Date: Sat, 03 Nov 2018 04:38:11 GMT
+Server: Play! Framework;1.2.5;prod
+Content-Type: application/json; charset=utf-8
+Cache-Control: no-cache
+Content-Length: 10
+Set-Cookie: PLAY_FLASH=;Expires=Sat, 3-Nov-2018 04:38:11 GMT;Path=/;Domain=.xyzprinting.com
+Set-Cookie: PLAY_ERRORS=;Expires=Sat, 3-Nov-2018 04:38:11 GMT;Path=/;Domain=.xyzprinting.com
+Set-Cookie: PLAY_SESSION=;Expires=Sat, 3-Nov-2018 04:38:11 GMT;Path=/;Domain=.xyzprinting.com
+X-XSS-Protection: 0
+Access-Control-Allow-Methods: PUT, GET, POST, DELETE, OPTIONS
+Connection: close
+
+{"used":0}
+
+//-------------
+

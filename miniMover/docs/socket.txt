@@ -1,0 +1,490 @@
+
+data sendData(const char *mode, const char *subMode)
+{
+	str = mode + subMode;
+
+	System.Net.Sockets.TcpClient;
+
+	TcpClient gClient;
+	int pPort = 9100;
+	char *pIP = "xxx";
+
+	gClient = new TcpClient();
+	gClient.BeginConnect(pIP, pPort, null, null).AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(5))
+
+	//if(nano, mini w, or miniMaker)
+	// if not listening for return,			then timeout is 50
+	// if XYZv3/action=xxx,					then timeout is 500
+	// if XYZv3/action=calibratejr:getdata, then timeout is 3000
+	// if XYZv3/config=xxx,					then timeout is 2000
+	// if XYZv3/query=xxx,					then timeout is 2000
+	// if XYZv3/query=a,					then timeout is 5000
+	// if XYZv3/query=W,					then timeout is 5000
+	//else
+	// if XYZv3/action=xxx,					then timeout is 500
+	// if XYZv3/config=xxx,					then timeout is 5000
+	// if XYZv3/query=xxx,					then timeout is 5000
+
+	gClient.SendTimeout = 500; // in milliseconds?
+	gClient.ReceiveTimeout = 500;
+
+	StreamWriter streamWriter = new StreamWriter(gClient.GetStream());
+	StreamReader streamReader = new StreamReader(gClient.GetStream());
+
+	streamWriter.WriteLine(str);
+	streamWriter.Flush();
+
+	//
+	while(l = streamReader.ReadLine())
+	{
+		if(l == '$' || l == 'E0$' || l == 'E1$' || l == NULL)
+			break;
+
+		// process data
+		Main.ProtocolV3.Query_Parse(l);
+	}
+
+	gClient.Close();
+	gClient.GetStream().Dispose();
+}
+
+public void Query_Parse(string parse_data)
+{
+	string[] tstrArrays;
+	string str1, str2, str2x;
+
+	string[] strArrays = parse_data.Split(':');
+	if (strArrays[0] != null)
+	{
+		switch (strArrays[0])
+		{
+			case "b":
+			{
+				Main.main.checkProtocolNumber = 3;
+				Main.conn.P_informat.bed_temoerature = strArrays[1];
+				Main.conn.Bed_temp = strArrays[1];
+				break;
+			}
+			case "c":
+			{
+				str1 = strArrays[1].Remove(strArrays[1].Length - 1, 1).Remove(0, 1);
+				Main.main.KValue = str1.Split(',');
+				break;
+			}
+			case "d":
+			{
+				tstrArrays = strArrays[1].Split(',');
+				Main.conn.P_informat.print_percentage = tstrArrays[0];
+				Main.conn.work_parsent = tstrArrays[0];
+				Main.conn.P_informat.elapsed_time = tstrArrays[1];
+				Main.conn.work_time = tstrArrays[1];
+				Main.conn.P_informat.estimated_time = tstrArrays[2];
+				Main.conn.est_time = tstrArrays[2];
+				break;
+			}
+			case "e":
+			{
+				Main.conn.P_informat.error = strArrays[1];
+				Main.conn.Check_Status = strArrays[1];
+
+				UI_MiniMenu.mydalegate errorValueD = Main.main.threedview.ui.UI_MiniMenu.ErrorValueD;
+				object[] objArray = new object[] { "0" };
+				Main.main.Invoke(errorValueD, objArray);
+				if((Main.conn.P_informat.new_module_name == Main.main.New_print_type_define.FM1W || 
+					Main.conn.P_informat.new_module_name == Main.main.New_print_type_define.FM1X || 
+					Main.conn.P_informat.new_module_name == Main.main.New_print_type_define.FN1X) && 
+					Main.main.threedview.ui.UI_Advertisement.Visibility != Visibility.Visible && 
+					Main.conn.Check_Status != "0" && 
+					(Main.conn.Check_Status != "1073742342" || 
+					Main.conn.Check_Status != "1073742345" || 
+					Main.conn.Check_Status != "1073742342,1073742345"))
+				{
+					UI_MiniMenu.mydalegate _mydalegate = Main.main.threedview.ui.UI_MiniMenu.ErrorValueD;
+					object[] checkStatus = new object[] { Main.conn.Check_Status };
+					Main.main.Invoke(_mydalegate, checkStatus);
+				}
+				break;
+			}
+			case "f":
+			{
+				tstrArrays = strArrays[1].Split(',');
+				if (tstrArrays[0] != "1")
+				{
+					Main.conn.P_informat.e1_filament_left = tstrArrays[1];
+					Main.conn.FILAMANEE.remain_length = tstrArrays[1];
+					Main.conn.P_informat.e2_filament_left = tstrArrays[2];
+					Main.conn.FILAMANEE1.remain_length = tstrArrays[2];
+				}
+				else
+				{
+					Main.conn.P_informat.e1_filament_left = tstrArrays[1];
+					Main.conn.FILAMANEE.remain_length = tstrArrays[1];
+					//****FixMe, where does obj3 come form, probably tstrArrays[2]
+					Main.conn.P_informat.e2_filament_left = (string)obj3;
+					Main.conn.FILAMANEE1.remain_length = (string)obj3;
+				}
+				break;
+			}
+			case "G":
+			{
+				JObject jObjects = JsonConvert.DeserializeObject<JObject>(parse_data.Replace("G:", ""));
+				str1 = jObjects["LastUsed"].ToString();
+				Main.conn.P_informat.LastPrint_lenght = str1;
+				Main.conn.LastPrint = str1;
+				break;
+			}
+			case "i":
+			{
+				byte[] bytes = Encoding.ASCII.GetBytes(strArrays[1]);
+				for (int i = 0; i < (int)bytes.Length; i++)
+				{
+					if (bytes[i] == 63)
+						bytes[i] = 45;
+				}
+
+				str1 = Encoding.Default.GetString(bytes);
+				Main.conn.P_informat.serial_number = str1;
+				Main.conn.sn_number = str1;
+				RegistryKey registryKey = Custom.BaseKey.CreateSubKey("xyzsetting");
+				registryKey.SetValue("LastPrinterSN", Main.conn.sn_number);
+				break;
+			}
+			case "j":
+			{
+				if (!strArrays[1].Contains(","))
+				{
+					Main.conn.P_informat.print_status = strArrays[1];
+					Main.conn.Prn_State = strArrays[1];
+				}
+				else
+				{
+					str1 = strArrays[1].Split(',')[0];
+					Main.conn.P_informat.print_status = str1;
+					Main.conn.Prn_State = str1;
+
+					str1 = strArrays[1].Split(',')[1];
+					Main.conn.P_informat.print_substatus = str1;
+					Main.conn.Prn_SubState = str1;
+				}
+				break;
+			}
+			case "L":
+			{
+				tstrArrays = strArrays[1].Split(',');
+				Main.conn.P_informat.machine_life = tstrArrays[1];
+				Main.conn.mch_life = tstrArrays[1];
+				Main.conn.P_informat.machine_extruder_lift = tstrArrays[2];
+				Main.conn.mch_exdur_life = tstrArrays[2];
+				if ((int)tstrArrays.Length > 3)
+				{
+					Main.conn.P_informat.machine_last_time = tstrArrays[3];
+					Main.conn.mch_last_time = tstrArrays[3];
+				}
+				RegistryKey registryKey1 = Custom.BaseKey.CreateSubKey("xyzsetting");
+				if (!registryKey1.GetSubKeyNames().Contains<string>(Main.conn.sn_number))
+				{
+					Main.main.FirstConnect = true;
+				}
+				RegistryKey registryKey2 = registryKey1.CreateSubKey(Main.conn.sn_number);
+				registryKey2.SetValue("EXTRUDER_LIFE", Main.conn.mch_exdur_life);
+				break;
+			}
+			case "n":
+			{
+				Main.conn.P_informat.printer_name = strArrays[1];
+				Main.conn.print_name = strArrays[1];
+				break;
+			}
+			case "o":
+			{
+				str1 = strArrays[1].Split(',')[0];
+				Main.conn.PackageSize = Convert.ToInt32(str1.Remove(0, 1)) * 1024;
+
+				if (strArrays[1].Split(',')[3].Remove(0, 1) != "+")
+					Main.conn.IsAutoLeveing = false;
+				else
+					Main.conn.IsAutoLeveing = true;
+				break;
+			}
+			case "p":
+			{
+				Main.conn.P_informat.module_name = strArrays[1];
+				Main.conn.machineModel = strArrays[1];
+				if (Main.conn.machineModel == "dv1MW0B000")
+				{
+					Main.conn.machineModel = "dv1MW0A000";
+					Main.conn.P_informat.module_name = "dv1MW0A000";
+					Main.main.ISMiniNewWifi = true;
+				}
+				Main.conn.check_print_model(Main.conn.machineModel);
+				Main.conn.check_p_info_print_model(Main.conn.P_informat.module_name);
+				break;
+			}
+			case "s":
+			{
+				parse_data = parse_data.Remove(0, 2);
+				JObject jObjects = JsonConvert.DeserializeObject<JObject>(parse_data);
+				if (jObjects["sd"] != null)
+				{
+					if (jObjects["sd"].ToString() != "yes")
+						Main.conn.SDCARD_IS_EXIST = false;
+					else
+						Main.conn.SDCARD_IS_EXIST = true;
+				}
+				if (jObjects["eh"] != null)
+				{
+					if (jObjects["eh"].ToString() != "1")
+						Main.conn.DO_ENGRAVING = false;
+					else
+						Main.conn.DO_ENGRAVING = true;
+				}
+				if (jObjects["dr"] != null)
+				{
+					JObject jObjects2 = JsonConvert.DeserializeObject<JObject>(jObjects["dr"].ToString());
+					if (jObjects2["front"].ToString() != "on")
+						Main.conn.DoorFront_Open = false;
+					else
+						Main.conn.DoorFront_Open = true;
+
+					if (jObjects2["top"].ToString() != "on")
+						Main.conn.DoorTop_Open = false;
+					else
+						Main.conn.DoorTop_Open = true;
+				}
+
+				if (Main.main.SWPublishVersion == 1)
+					Main.conn.AllowOpenFilament = false;
+				else if (jObjects["of"] == null)
+				{
+					str1 = Main.conn.P_informat.serial_number.Substring(6, 2);
+					if (str1 == "CN" || str1 == "US" || str1 == "EU")
+						Main.conn.AllowOpenFilament = true;
+					else
+						Main.conn.AllowOpenFilament = false;
+				}
+				else if (jObjects["of"].ToString() != "1")
+					Main.conn.AllowOpenFilament = false;
+				else
+					Main.conn.AllowOpenFilament = true;
+
+				if (jObjects["buzzer"] != null)
+				{
+					if (jObjects["buzzer"].ToString() != "on")
+						Main.conn.BuzzerOn = false;
+					else
+						Main.conn.BuzzerOn = true;
+				}
+				break;
+			}
+			case "t":
+			{
+				tstrArrays = strArrays[1].Split(',');
+				if (tstrArrays[0] != "1")
+				{
+					Main.conn.P_informat.extruder1_temperature = tstrArrays[1];
+					Main.conn.Ext_temp0 = tstrArrays[1];
+					Main.conn.P_informat.extruder2_temperature = tstrArrays[2];
+					Main.conn.Ext_temp1 = tstrArrays[2];
+				}
+				else
+				{
+					Main.conn.P_informat.extruder1_temperature = tstrArrays[1];
+					Main.conn.Ext_temp0 = tstrArrays[1];
+					Main.conn.P_informat.extruder2_temperature = "0";
+					Main.conn.Ext_temp1 = "0";
+					if ((int)tstrArrays.Length == 3)
+						Main.conn.Ext_Goal_temp0 = tstrArrays[2];
+				}
+				break;
+			}
+			case "v":
+			{
+				tstrArrays = strArrays[1].Split(',');
+				if ((int)tstrArrays.Length <= 2)
+				{
+					Main.conn.P_informat.engine_version = tstrArrays[0];
+					Main.conn.firmware_url = tstrArrays[0];
+				}
+				else
+				{
+					Main.conn.P_informat.os_version = tstrArrays[0];
+					Main.conn.os_firmware_url = tstrArrays[0];
+					Main.conn.P_informat.app_version = tstrArrays[1];
+					Main.conn.app_firmware_url = tstrArrays[1];
+					Main.conn.P_informat.engine_version = tstrArrays[2];
+					Main.conn.firmware_url = tstrArrays[2];
+				}
+				break;
+			}
+			case "w":
+			{
+				tstrArrays = strArrays[1].Split(',');
+				if (tstrArrays[0] != "1")
+				{
+					Main.conn.P_informat.filament1_serial = tstrArrays[1];
+					Main.conn.FILAMANEE.serial_number = tstrArrays[1];
+					Main.conn.P_informat.filament2_serial = tstrArrays[2];
+					Main.conn.FILAMANEE1.serial_number = tstrArrays[2];
+					Main.main.Cartridge_serial_number = string.Concat(tstrArrays[1], ",", tstrArrays[2]);
+					this.parseFilament(Main.conn.FILAMANEE.serial_number, 1);
+					this.parseFilament(Main.conn.FILAMANEE1.serial_number, 2);
+				}
+				else
+				{
+					Main.main.Cartridge_serial_number = tstrArrays[1];
+					Main.conn.P_informat.filament1_serial = tstrArrays[1];
+					Main.conn.FILAMANEE.serial_number = tstrArrays[1];
+					this.parseFilament(Main.conn.FILAMANEE.serial_number, 1);
+					if ((int)tstrArrays.Length > 2 && !string.IsNullOrEmpty(tstrArrays[2]))
+						Main.conn.FILAMANEE.default_FilaTemperature = tstrArrays[2];
+				}
+				break;
+			}
+			case "h":
+			{
+				if (Convert.ToInt32(strArrays[1]) > 0)
+					Main.conn.IsEnablePLA = true;
+				break;
+			}
+			case "k":
+			{
+				Main.conn.IsNeedCalibration = false;
+				if (Convert.ToInt32(strArrays[1]) != 0)
+				{
+					if (Convert.ToInt32(strArrays[1]) > 0)
+					{
+						int num1 = Convert.ToInt32(Convert.ToString(Convert.ToInt32(strArrays[1]), 16));
+						int num2 = Convert.ToInt32(Main.conn.FILAMANEE.material);
+						if (num1 == 41 && num2 == 46)
+							Main.conn.IsNeedCalibration = true;
+						else if (num1 == 46 && num2 == 41)
+							Main.conn.IsNeedCalibration = true;
+						else if (num1 != 41 && num1 != 46)
+						{
+							if ((num1 == 50 || num1 == 51 || num1 == 56 || num1 == 54 || num2 == 47) && (num2 == 41 || num2 == 46))
+							{
+								Main.conn.IsNeedCalibration = true;
+							}
+						}
+						else if (num2 == 50 || num2 == 51 || num2 == 56 || num2 == 54 || num2 == 47)
+							Main.conn.IsNeedCalibration = true;
+					}
+				}
+				else
+					Main.conn.IsNeedCalibration = false;
+				break;
+			}
+			case "W":
+			{
+				parse_data = parse_data.Remove(0, 2);
+				this.jArry = JsonConvert.DeserializeObject<JArray>(parse_data);
+				for (int i = 0; i < this.jArry.Count; i++)
+				{
+					PrinterConnection.WifiSSIDandSecurityMethod wifiSSIDandSecurityMethod = new PrinterConnection.WifiSSIDandSecurityMethod();
+					if (this.jArry[i]["ssid"] != null)
+						wifiSSIDandSecurityMethod.ssid = this.jArry[i]["ssid"].ToString();
+					if (this.jArry[i]["bssid"] != null)
+						wifiSSIDandSecurityMethod.bssid = this.jArry[i]["bssid"].ToString();
+					if (this.jArry[i]["channel"] != null)
+						wifiSSIDandSecurityMethod.channel = this.jArry[i]["channel"].ToString();
+					if (this.jArry[i]["rssiValue"] != null)
+						wifiSSIDandSecurityMethod.rssiValue = this.jArry[i]["rssiValue"].ToString();
+					if (this.jArry[i]["PHY"] != null)
+						wifiSSIDandSecurityMethod.PHY = this.jArry[i]["PHY"].ToString();
+					if (this.jArry[i]["security"] != null)
+						wifiSSIDandSecurityMethod.security = this.jArry[i]["security"].ToString();
+					if (!Main.conn.W_informat.Contains(wifiSSIDandSecurityMethod))
+						Main.conn.W_informat.Add(wifiSSIDandSecurityMethod);
+				}
+				break;
+			}
+			case "4":
+			{
+				parse_data = parse_data.Remove(0, 2);
+				JObject jObjects = JsonConvert.DeserializeObject<JObject>(parse_data);
+				jObjects = JsonConvert.DeserializeObject<JObject>(jObjects["wlan"].ToString());
+				if (jObjects["ip"].ToString() != "0.0.0.0")
+				{
+					str1 = jObjects["ip"].ToString();
+					Main.conn.P_informat.ip = str1;
+					Main.conn.P_informat.port = "9100";
+					Main.main.ip = str1;
+					Main.main.port = "9100";
+					Main.main.ssid = jObjects["ssid"].ToString();
+				}
+
+				if (jObjects["MAC"].ToString().Length > 0)
+					Main.main.MAC = jObjects["MAC"].ToString();
+
+				if (jObjects["rssiValue"].ToString().Length > 0)
+					Main.main.rssi = Math.Abs(int.Parse(jObjects["rssiValue"].ToString())).ToString();
+
+				break;
+			}
+			case "X":
+			{
+				str1 = strArrays[1].Split(',')[0];
+				Main.main.X_NozzleType = str1;
+
+				// first nozzle
+				str2 = strArrays[1].Split(',')[1];
+
+				// pull info on first nozzle
+				string str3 = "";
+				for (int i = 0; i < 6; i++)
+					str3 = string.Concat(str3, str2.Split('-')[i]);
+				Main.conn.NozzleHead.SerialNumber = str3;
+				Main.conn.NozzleHead.RemainTime = str2.Split('-')[6];
+
+				if (str1 == "1" || str1 == "77" || str1 == "82")
+				{
+					Main.conn.PrinterNozzleDiameter = 0.4;
+					Main.main.isLaserHead = false;
+				}
+				else if (str1 == "2")
+				{
+					Main.conn.PrinterNozzleDiameter = 0.4;
+					Main.main.isLaserHead = false;
+
+					// optional second nozzle
+					str2x = strArrays[1].Split(',')[2];
+					string str3 = "";
+					for (int i = 0; i < 6; i++)
+						str3 = string.Concat(str3, str2x.Split('-')[i]);
+					Main.conn.NozzleHead1.SerialNumber = str3;
+					Main.conn.NozzleHead1.RemainTime = str2x.Split('-')[6];
+				}
+				else if (str1 == "L" || str1 == "N" || str1 == "H" || str1 == "Q")
+				{
+					Main.conn.PrinterNozzleDiameter = 0.4;
+					Main.main.isLaserHead = true;
+				}
+				else if (str1 == "3" || str1 == "84")
+				{
+					Main.conn.PrinterNozzleDiameter = 0.3;
+					Main.main.isLaserHead = false;
+				}
+				else if (str1 == "54")
+				{
+					Main.conn.PrinterNozzleDiameter = 0.6;
+					Main.main.isLaserHead = false;
+				}
+				else if (str1 == "56")
+				{
+					Main.conn.PrinterNozzleDiameter = 0.8;
+					Main.main.isLaserHead = false;
+				}
+				break;
+			}
+		}
+	}
+
+	int num = 0;
+	if (Main.main.ExcuteOrder.Contains("zoffset:get"))
+		if (int.TryParse(parse_data, out num))
+			Main.main.ExcuteReturn = num.ToString();
+
+	if (Main.main.needListen)
+		Main.main.SendActListen = parse_data;
+}
+

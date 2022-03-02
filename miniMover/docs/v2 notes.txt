@@ -1,0 +1,567 @@
+// version 2 usb protocol, used by the 1.0 and 1.1 printers (and possibly the 2.0?)
+// not used over wifi?
+
+//---------
+
+// XYZprinting da Vinci AiO (COM8)
+
+ XYZ_@3D:0
+  XYZ_@3D:start
+  MDU:dvF10SA000
+  FW_V:1.2.4
+  MCH_ID:3S10APEU4TH4AF0417
+  PROTOCOL:2
+
+ XYZ_@3D:5
+  MCHLIFE:8233
+  MCHEXDUR_LIFE:5581
+
+ XYZ_@3D:6
+  EE1:5a,41,4b0000,353550,240000,78115,210,90,5448,3632,58304745,52,0
+
+ XYZ_@3D:7
+  EE2:00,00,000000,000000,0,0,0,0,0000,0000,,0,0
+
+ XYZ_@3D:8
+  WORK_PARSENT:0
+  WORK_TIME:0
+  EST_TIME:0
+  ET0:86
+  BT:51
+  MCH_STATE:8
+  LANG:4
+
+//---------
+
+XYZ_@3D:	// connect, only supported on older firmwares? see XYZ_@3D:0
+	DAVAPP_ACK@
+	DAVAPP_ERR@
+
+XYZ_@3D:-1	// disconnect, only on older firmwares?
+	DAVAPP_ACK@
+	DAVAPP_ERR@
+
+XYZ_@3D:0	// connect
+	Welcome:daVinciF11		// 3W file model number
+	XYZ_@3D:start
+	MDU:dvF110B000			// p, printer model number
+	OS_V:1.1.0.19			// v, firmware versions
+	APP_V:1.1.7.3			// v
+	FW_V:N/A			// v, firmware version
+	MCH_ID:3F11XPGBXTH5320151	// i, machine serial number
+	PRT_NAME:da Vinci 1.1 Plus	// n, printer name
+	PRT_IP:192.168.1.126		// 4, printer ip
+
+	// or
+
+	XYZ_@3D:start
+	MDU:daVinciF10
+	FW_V:1.1.G
+	MCH_ID:3DP01PUS5TH41D0145
+
+	// or
+
+	XYZ_@3D:start
+	MDU:dvF100A000
+	FW_V:1.0.1
+	MCH_ID:3F10APEU4TH4AN0085
+	PROTOCOL:2
+
+XYZ_@3D:1	// startOnlinePrint
+	DAVAPP_ACK@
+	DAVAPP_ERR@
+
+XYZ_@3D:2	// test print or inject manual command, end on M84, probably does not work on newer firmware
+	DAVAPP_ACK@
+	DAVAPP_ERR@
+
+	// update z offset
+	> XYZ_@3D:2<nl>	// start injecting gcode
+	> M500 ZXXX<nl>	// set z offset
+	> M84 T<nl>	// end command
+
+XYZ_@3D:3	// uploadFirmwareBinary
+
+	> XYZ_@3D:3
+	< FWOK
+
+	// choose one
+
+	// v1.0 printer (and 2.0?)
+	> M1:firmwarelast,<bytes>
+
+	// v1.1 printer, engine fw
+	> M2:engine,engine_data.bin,<bytes>
+
+	// v1.1 printer, app fw
+	> M2:app,app_data.zip,<bytes>
+
+	// v1.1 printer, os fw
+	> M2:os,XYZ_Update.zip,<bytes>
+
+	< M2_OK // M1_OK on 1.0 ?
+
+	in loop
+		> send data in 10236 byte chunks
+		> send 4 byte checksume of each frame of data
+		< M2_OK // or CheckSumOK or if CheckSumFail send again or if OFFLINE_NO then give up
+
+	// on v1.1 printers, upload all three firmwares then
+	// send bitmask to tell printer what firmware to install
+
+	// if engine
+	> UPDATE_START:1
+	// if app
+	> UPDATE_START:2
+	// if os
+	> UPDATE_START:4
+
+XYZ_@3D:4	// uploadGCodeText
+
+	// old send mode?
+	> XYZ_@3D:4
+	< OFFLINE_OK // or OFFLINE_FAIL
+	> M1:MyTest,<len><gcode file in plain text>
+	< CheckSumOK
+
+	// new send mode
+	> XYZ_@3D:4
+	< OFFLINE_OK // or failures OFFLINE_FAIL, OFFLINE_NO, OFFLINE_NG
+	> M1:MyTest,<len>,<h>.<m>.<s>,EE1_OK,EE2_OK // <len> is file length in bytes, <h>.<m><s> is estimated print time
+	< M1_OK // or failure M1_FAIL on 1.1 Plus
+
+	in loop
+		> send data in 10236 byte chunks
+		> send 4 byte checksume of each frame of data
+		< M2_OK // or CheckSumOK or if CheckSumFail send again or if OFFLINE_NO then give up
+
+XYZ_@3D:5	// machineLife
+	MCHLIFE:70145			// L, lifetime timers
+	MCHEXDUR_LIFE:21785		// L
+
+XYZ_@3D:6	// read eeprom A
+	W1:--------------		// w & f, fillament info for first spool
+
+	// or
+
+	EE1:5a,41,570000,343144,120000,725448,210,90,5448,5553,30313132,52
+
+	// or
+
+	EE1:5a,41,5a0000,344241,120000,115003,210,90,5448,4742,30323237,52
+
+	// or
+
+	EE1:5a,41,570000,343141,240000,240000,210,90,5448,4742,30313135,52
+		xyzCode(Z),material(ABS A),color(white W),Mdate(41A), total_length (mm), remain_length (mm), temperatureHead ©, temperatureBed ©, Mloc (TH), Dloc(GB),SN(SERIAL),security_code
+
+	// or, bad eeproms
+	EE1:01,01,010101,010101,16843009,16843009,257,257,0101,0101,010101010101010101010101,257
+	EE1:5a,41,570000,343141,240000,240000,210,90,5448,4742,30313135,52,0
+	EE1:5a,41,570000,343236,120000,120000,210,90,5448,4555,30323732,52,0
+		Cartridge info on printer display says REMAIN 120m , CAPACITY 120m, WHITE.
+		xyzCode,material,color,Mdate, total_length (mm), remain_length (mm), temperatureHead ©, temperatureBed ©, Mloc , Dloc,SN(SERIAL),security_code,check_illegal
+
+XYZ_@3D:7	// read eeprom B
+	W2:--------------		// w & f, fillament info for second spool
+
+XYZ_@3D:8	// machine status or printer status
+	WORK_PARSENT:			// d, print status	
+	WORK_TIME:0			// d
+	EST_TIME:0			// d
+	ET0:--				// t, extruder temp
+	ET1:--				// t, second extruder temp
+	BT:--				// b, bed temp
+	MCH_STATE:2			// e, error status
+	PRN_STATE:10			// j, printer status
+
+	// or
+
+	WORK_PARSENT:0
+	WORK_TIME:0
+	EST_TIME:0
+	ET0:22
+	BT:28
+	MCH_STATE:26
+
+	// or
+
+	WORK_PARSENT:0
+	WORK_TIME:0
+	EST_TIME:0
+	ET0:31
+	BT:27
+	MCH_STATE:26
+	LANG:0
+
+
+XYZ_@3D:9	// send build sample?
+	DAVAPP_ACK@
+	DAVAPP_ERR@
+
+XYZ_@3D:20
+
+XYZ_@3D:21	// set language?
+
+
+XYZ_@3D:90	// latestBlockSent
+XYZ_@3D:91	// uploadBinaryDidFinish
+XYZ_@3D:92	// uploadGCodeDidFinish
+
+XYZ_@3D:101	// extruder on
+XYZ_@3D:102	// extruder off
+XYZ_@3D:103	// extruder Temperature
+
+XYZ_@3D:201	// get standard info
+XYZ_@3D:202	// get advanced info
+
+XYZ_@3D:9376	// unlock eeprom (filament) for 1.0 and 1.1 machines
+XYZ_@3D:1423
+XYZ_@3D:5192
+XYZ_@3D:6810
+
+DAVCFW_82895_203811@ // unlock eeprom (filament) for 2.0 machines
+
+XYZ_@3D_S10_X	// disconnect
+XYZ_@3D_S10_0	// connect
+XYZ_@3D_S10_1	// start print
+XYZ_@3D_S10_2	// test case
+XYZ_@3D_S10_3	// uploadFirmwareBinary
+XYZ_@3D_S10_4	// uploadGCodeText
+
+XYZ_@3D_S10_101	// extruder Temperature
+XYZ_@3D_S10_102	// get standard info
+XYZ_@3D_S10_103	// get advanced info
+
+//---------
+// Older printers use eeproms in the fillament cartridge
+// these commands unlock the fillament for printing?
+
+	if (this.F20reusltstring) // 2.0 Duo
+	{
+		this.serialwriteline("DAVCFW_82895_203811@");
+	}
+	// I don't know how these are suppose to work, but
+	// on a 1.1 Plus they don't seem to work
+	else if (this.F10reusltstring || // 1.0 1.0A 1.0 AiO
+		this.F11reusltstring)    // 1.1 Plus
+	{
+		this.serialwriteline("XYZ_@3D:9376");
+		this.serialwriteline("XYZ_@3D:1423");
+		this.serialwriteline("XYZ_@3D:5192");
+		this.serialwriteline("XYZ_@3D:6810");
+	}
+	// these don't seem to be used in real life
+	else if (this.FJR10reusltstring ||  // Jr. 1.0
+		this.FJR10Wreusltstring ||  // Jr. 1.0W
+		this.F1JSreusltstring ||    // Jr. 1.0 3in1
+		this.F1AWreusltstring ||    // 1.0 Pro
+		this.F1ASreusltstring ||    // 1.0 Pro 3in1
+		this.FM1Wreusltstring ||    // mini w
+		this.FM1Xreusltstring ||    // miniMaker
+		this.FJR20Mreusltstring ||  // Jr. 2.0 Mix ???
+		this.F1SWreusltstring ||    // Super
+		this.FJR10Proresultstring ||// Jr. 1.0 Pro
+		this.F1JOresultstring ||    // Jr. 1.0 3in1 open filament
+		this.FJR10Aresultstring ||  // Jr. 1.0A
+		this.FN1Xresultstring)      // nano
+	{
+		this.serialwriteline("XYZv3/config=pda:[1591]");
+		this.serialwriteline("XYZv3/config=pdb:[4387]");
+		this.serialwriteline("XYZv3/config=pdc:[7264]");
+		this.serialwriteline("XYZv3/config=pde:[8046]");
+	}
+
+//------------------------
+// G-Code commands
+
+	XYZ_@3D:2 // test head, send this first
+	M84 P // pause print
+	M84 R // resume print
+
+	M500 Z XX // set z offset
+	G91 // relative mode?
+	G90 // absolute mode?
+	G1 E-xx Fyy // xx extruder amount yy extruder speed
+	// or
+	G1 aaxx Fyy // move head aa axis[X Y Z] xx amount yy feedrate
+	G28 // home all?
+	G28 X0 // home x
+	G28 Y0 // home y
+	G28 Z0 // home z
+	M241 // dis test mode?
+	M240 // e test mode
+	M140 Sxx // heat bed temp xx temp, 0 is off
+	M104 Sxx // extruder temp xx temp, 0 is off
+	M107 // fan off
+	M106 Sxx // fan on xx speed
+	M81 // switch power connector?
+	M84   // test end or M84 T send this last
+
+//---------------
+// print file
+
+	// start print
+	serialSendMessage("XYZ_@3D:4");
+	// 200 ms delay
+
+	// spinn till state is OFFLINE_OK, but not OFFLINE_FAIL, OFFLINE_NO, OFFLINE_NG
+	waitForResponse("OFFLINE_OK"); // wait 5 seconds
+
+	// send file info
+	serialSendMessage("M1:MyTest,%d,%d.%d.%d,EE1_OK,EE2_OK", len, 1, 0, 0); // last three digits are hour/min/sec estimate of print time
+	// 1000 ms delay
+
+	// wat for M1_OK, or possibly M1_FAIL on 1.1 Plus
+	waitForResponse("M1_OK"); // wait 5 seconds
+
+	// prepare to send data in frames
+	char *dataArray = buf;
+	int frameLen = 10236;
+	int lastFrameLen = len % frameLen;
+	int frameCount = len / frameLen;
+	int frameNum = 0;
+
+	// in loop
+	while (m_stream && m_stream->isOpen() && frameNum <= frameCount)
+	{
+		int tFrameLen = (frameNum < frameCount) ? frameLen : lastFrameLen;
+
+		// calc a checksum
+		int chk = 0;
+		for (int i = 0; i < tFrameLen; i++)
+		{
+			chk = ((unsigned char)dataArray[i]) + chk;
+		}
+
+		// byteswap to network byte order
+		chk = swap32bit(chk);
+
+		// send data
+		m_stream->write(dataArray, tFrameLen);
+		// send checksum
+		m_stream->write((char*)&chk, 4);
+
+		// wait for M2_OK or CheckSumOK
+		// or if CheckSumFail send again
+		// or if OFFLINE_NO then give up
+		waitForResponse("M2_OK"); // wait 50 ms
+
+		dataArray += frameLen;
+		frameNum++;
+	}
+
+	// close stream
+
+//---------------------------
+// all possible returns for serial connection on v2 protocol
+
+public override void AnalyzeResponse(string res)
+{
+	JOB_SUSPEND
+	JOB_RESUME
+	JOB_CANCEL
+	FWOK		// v2 fw update ok to procede
+	ok		// v3 fw update ok to procede
+	E0		// SerialConnector.V3Fwupdata = 10;
+	E35		// SerialConnector.V3Fwupdata = 15;
+	FWNO		// v2 fw not able to upgrade
+	M1_OK		// print header ok
+	M1_FAIL		// print header not ok
+	M2_OK		// fw header ok
+	M2_FAIL		// fw header not ok
+	OFFLINE_OK
+	OFFLINE_FAIL
+	OFFLINE_NO
+	OFFLINE_NG
+	CheckSumOK
+	CheckSumFail
+	HEADER_OK
+	HEADER_FAIL
+	M888_WAIT
+	JOB_FINISH
+	start
+	Resend:		// resend line of data
+	ok
+	wait
+
+}
+
+//---------------------------
+// decode fillament info
+
+void merge_filament_data(string h)
+{
+	// example 
+	// EE1:5a,41,570000,343144,120000,725448,210,90,5448,5553,30313132,52
+	// EE1:XX,MM,RRGGBB,XXYYZZ,LLLLLL,llllll,HHH,BB,MMmm,DDdd,AABBCCDD,SS,0
+
+	EE1data = h.Split(',');
+	FILAMANEE.xyzCode  = EE1data[0];
+	FILAMANEE.material = EE1data[1];
+	FILAMANEE.color[0] = EE1data[2].Substring(0, 2);
+	FILAMANEE.color[1] = EE1data[2].Substring(2, 2);
+	FILAMANEE.color[2] = EE1data[2].Substring(4, 2);
+	FILAMANEE.Mdate[0] = EE1data[3].Substring(0, 2);
+	FILAMANEE.Mdate[1] = EE1data[3].Substring(2, 2);
+	FILAMANEE.Mdate[2] = EE1data[3].Substring(4, 2);
+	FILAMANEE.total_length    = EE1data[4];
+	FILAMANEE.remain_length   = EE1data[5];,
+	FILAMANEE.temperatureHead = EE1data[6];
+	FILAMANEE.temperatureBed  = EE1data[7];
+	if(EE1data[8] != "00") {
+		FILAMANEE.Mloc[0] = EE1data[8].Substring(0, 2);
+		FILAMANEE.Mloc[1] = EE1data[8].Substring(2, 2);
+	} else {
+		FILAMANEE.Mloc[0] = '0';
+		FILAMANEE.Mloc[1] = '0';
+	}
+	if(EE1data[9] != "00") {
+		FILAMANEE.Dloc[0] = EE1data[9].Substring(0, 2);
+		FILAMANEE.Dloc[1] = EE1data[9].Substring(2, 2);
+	} else {
+		FILAMANEE.Dloc[0] = '0';
+		FILAMANEE.Dloc[1] = '0';
+	}
+	if(EE1data[10].Trim() != "")
+	{
+		FILAMANEE.SN[0] = EE1data[10].Substring(0, 2);
+		FILAMANEE.SN[1] = EE1data[10].Substring(2, 2);
+		FILAMANEE.SN[2] = EE1data[10].Substring(4, 2);
+		FILAMANEE.SN[3] = EE1data[10].Substring(6, 2);
+	}
+	FILAMANEE.security_code = EE1data[11];
+	FILAMANEE.check_illegal = EE1data[12];
+}
+
+//****Note, this does not seem to be needed to unlock the filament
+//****Note, seems to be some 44 calls to website in code
+public void GetInternetInfo()
+{
+	string str;
+	bool flag = false;
+	Environment.CurrentDirectory = Main.main.Temp_folder;
+
+	//this.SN is the cartridge serial number from the printer status command
+	str = (string.IsNullOrEmpty(Main.conn.sn_number) ? string.Concat("http://xyzlog.xyzprinting.com/api/getFilamentUsage?cartridge_sn=", this.Encrypt(this.SN)) : 
+		string.Concat("http://xyzlog.xyzprinting.com/api/getFilamentUsage?cartridge_sn=", this.Encrypt(this.SN), "&printer_sn=", this.Encrypt(Main.conn.sn_number)));
+
+	string str2 = string.Concat(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "\\temp.ree");
+	if (File.Exists(str2))
+	{
+		string str3 = Decrypt(File.ReadAllText(str2), "1234567890123456");
+		char[] chrArray = new char[] { ';' };
+		this.dict = str3.Split(chrArray).ToDictionary<string, string, string>((string x) => x.Split(new char[] { '=' })[0], (string x) => x.Split(new char[] { '=' })[1]);
+		flag = true;
+	}
+
+	HttpWebRequest defaultCredentials = (HttpWebRequest)WebRequest.Create(str);
+	defaultCredentials.KeepAlive = false;
+	defaultCredentials.Credentials = CredentialCache.DefaultCredentials;
+	defaultCredentials.Method = "POST";
+	defaultCredentials.BeginGetRequestStream(new AsyncCallback(UI.GetRequestStreamCallback), defaultCredentials);
+	UI.allDone.WaitOne();
+
+	string tempBuffer = "";
+	tempBuffer = UI.temp_buffer;
+	string[] strArrays = this.SN.Split(new char[] { ',' });
+	JObject jObjects = JsonConvert.DeserializeObject<JObject>(tempBuffer);
+	JObject item = (JObject)jObjects[strArrays[0]];
+	IEnumerable<JProperty> jProperties = 
+		from p in item.Properties()
+		where p.Name == "r"
+		select p;
+	this.filament1.ramin_length = (string)jProperties.First<JProperty>().Value;
+	this.filament1.SN = strArrays[0];
+	JObject item1 = (JObject)jObjects[strArrays[1]];
+	IEnumerable<JProperty> jProperties1 = 
+		from p in item1.Properties()
+		where p.Name == "r"
+		select p;
+	this.filament2.ramin_length = (string)jProperties1.First<JProperty>().Value;
+	this.filament2.SN = strArrays[1];
+	if (!flag)
+	{
+		Dictionary<string, string> strs = new Dictionary<string, string>();
+		if (this.filament1.SN != null && this.filament1.ramin_length != null)
+			strs.Add(this.filament1.SN, this.filament1.ramin_length);
+
+		if (this.filament2.SN != null && this.filament2.ramin_length != null)
+			strs.Add(this.filament2.SN, this.filament2.ramin_length);
+
+		string str4 = string.Join(";", (
+			from x in strs
+			select string.Concat(x.Key, "=", x.Value)).ToArray<string>());
+
+		if (str4 != "")
+			File.WriteAllText(str2, Encrypt(str4, "1234567890123456"));
+	}
+	else
+	{
+		if (this.FindInDictionary(this.filament1.SN, this.dict) != "Not Found")
+			this.dict[this.filament1.SN] = this.filament1.ramin_length;
+		else if (this.filament1.SN != null && this.filament1.ramin_length != null)
+			this.dict.Add(this.filament1.SN, this.filament1.ramin_length);
+
+		if (this.FindInDictionary(this.filament2.SN, this.dict) != "Not Found")
+			this.dict[this.filament2.SN] = this.filament2.ramin_length;
+		else if (this.filament2.SN != null && this.filament2.ramin_length != null)
+			this.dict.Add(this.filament2.SN, this.filament2.ramin_length);
+
+		if (this.dict.Count == 101)
+			this.dict.Remove(this.dict.Keys.First<string>());
+
+		string str5 = string.Join(";", (
+			from x in this.dict
+			select string.Concat(x.Key, "=", x.Value)).ToArray<string>());
+
+		if (str5 != "")
+			File.WriteAllText(str2, Encrypt(str5, "1234567890123456"));
+	}
+}
+
+public string Encrypt(string toEncrypt)
+{
+	byte[] bytes = Encoding.UTF8.GetBytes("@xyzprinting.com");
+	byte[] numArray = Encoding.UTF8.GetBytes(toEncrypt);
+	RijndaelManaged rijndaelManaged = new RijndaelManaged()
+	{
+		Key = bytes,
+		Mode = CipherMode.CBC,
+		Padding = PaddingMode.PKCS7,
+		IV = new byte[16]
+	};
+	ICryptoTransform cryptoTransform = rijndaelManaged.CreateEncryptor();
+	byte[] numArray1 = cryptoTransform.TransformFinalBlock(numArray, 0, (int)numArray.Length);
+	return BitConverter.ToString(numArray1).Replace("-", string.Empty);
+}
+
+string Encrypt(string toEncrypt, string key)
+{
+	byte[] bytes = Encoding.UTF8.GetBytes(key);
+	byte[] numArray = Encoding.UTF8.GetBytes(toEncrypt);
+	RijndaelManaged rijndaelManaged = new RijndaelManaged()
+	{
+		Key = bytes,
+		Mode = CipherMode.ECB,
+		Padding = PaddingMode.PKCS7
+	};
+	ICryptoTransform cryptoTransform = rijndaelManaged.CreateEncryptor();
+	byte[] numArray1 = cryptoTransform.TransformFinalBlock(numArray, 0, (int)numArray.Length);
+	return Convert.ToBase64String(numArray1, 0, (int)numArray1.Length);
+}
+
+string Decrypt(string toDecrypt, string key)
+{
+	byte[] bytes = Encoding.UTF8.GetBytes(key);
+	byte[] numArray = Convert.FromBase64String(toDecrypt);
+	RijndaelManaged rijndaelManaged = new RijndaelManaged()
+	{
+		Key = bytes,
+		Mode = CipherMode.ECB,
+		Padding = PaddingMode.PKCS7
+	};
+	ICryptoTransform cryptoTransform = rijndaelManaged.CreateDecryptor();
+	byte[] numArray1 = cryptoTransform.TransformFinalBlock(numArray, 0, (int)numArray.Length);
+	return Encoding.UTF8.GetString(numArray1);
+}

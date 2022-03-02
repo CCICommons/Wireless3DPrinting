@@ -1,0 +1,1319 @@
+//*********************
+// Serial: 115200 baud, 8 bit, 0 parity, 1 stop, 
+
+
+//*********************
+// known printers
+
+//  prog	model_num	file3w_model	serial	nz fv sp cp dim LxWxH		name
+//
+//  older communication protocol
+//
+//	F10,	"dvF100B000",	"daVinciF10",	3DP01P,	0, 2, 1, 1, 200x200x200,	"da Vinci 1.0"       
+//	F10A,	"dvF100A000",	"daVinciF10",	3F10AP,	0, 2, 1, 1, 200x200x200,	"da Vinci 1.0A"
+//	F10SA,	"dvF10SA000",	"daVinciF10",	3S10AP,	0, 2, 1, 1, 200x200x200,	"da Vinci AIO"
+//	F20,	"dvF200B000",	"daVinciF20",	3F20XP,	0, 2, 1, 1, 200x150x200,	"da Vinci 2.0 Duo"
+//	F20A,	"dvF200A000",	"daVinciF20",	3F20AP,	0, 2, 1, 1, 200x150x200,	"da Vinci 2.0A Duo"
+//
+//  v3 protocol
+//
+//	F11,	"dvF110B000",	"daVinciF11",	3F11XP,	0, 2, 1, 3, 200x200x200,	"da Vinci 1.1 Plus" //???? I'm suspicious of this one, think it belongs above
+//
+//	FN1X,	"dv1NX0A000",	"dv1NX0A000",	3FN1XP,	1, 2, 1, 3, 120x120x120,	"da Vinci Nano"
+//	FM1W,	"dv1MW0A000",	"dv1MW0A000",	3FM1WP,	1, 2, 1, 3, 150x150x150,	"da Vinci Mini w" // may show up as "dv1MW0B000"
+//	,	"dv1MW0B000",   "dv1MW0B000",	3FM1JP,             150x150x150,   	"da Vinci mini wA"
+//	,	"dv1MW0C000",   "dv1MW0C000",	3FM1JP,             150x150x150,   	"da Vinci mini w+"
+//	FM1X,	"dv1MX0A000",	"dv1MX0A000",	3FM1XP,	1, 2, 1, 3, 150x150x150,	"da Vinci miniMaker"
+//	FJR10,	"dv1J00A000",	"daVinciJR10",	3F1J0X,	1, 2, 1, 3, 150x150x150,	"da Vinci Jr. 1.0"
+//	FJR10W,	"dv1JW0A000",	"daVinciJR10W",	3F1JWP,	1, 2, 1, 3, 150x150x150,	"da Vinci Jr. 1.0 Wireless"
+//	F1JS,	"dv1JS0A000",	"dv1JSOA000",	3F1JSP,	1, 2, 1, 3, 150x150x150,	"da Vinci Jr. 3in1"
+//	FJR20M,	"dv2JW0A000",	"daVinciJR20W",	3F2JWP,	1, 2, 1, 3, 150x150x150,	"da Vinci Jr. 2.0 Mix"
+//	FJR10A,	"dv1JA0A000",	"dv1JA0A000",	3F1JAP,	1, 2, 1, 3, 175x175x175,	"da Vinci Jr. 1.0A"
+//
+//  new file format
+//
+//	FJR10PRO,"dv1JP0A000",	"dv1JP0A000",	3F1JPP,	1, 5, 2, 3, 150x150x150,	"da Vinci Jr. 1.0 Pro"
+//	F1JO,	"dv1JSOA000",	"daVinciJR10S",	3F1JOP,	1, 5, 2, 3, 150x150x150,	"da Vinci Jr. 3in1 (Open filament)"
+//	F1AW,	"dvF1W0A000",	"daVinciAW10",	3F1AWP,	1, 5, 2, 3, 200x200x200,	"da Vinci 1.0 Pro"
+//	F1AS,	"dvF1WSA000",	"daVinciAS10",	3F1ASP,	1, 5, 2, 3, 200x200x190,	"da Vinci 1.0 Pro 3in1"
+//	F1SW,	"dv1SW0A000",	"dv1SW0A000",	3F1SWP,	1, 5, 2, 3, 300x300x300,	"da Vinci 1.0 Super"
+//
+//  unknown
+//
+//	F1CP,	"dv1CP0A000",
+//	F11A,	"dvF110A000",
+//	F11P,	"dvF110P000",
+//	F11SA,	"dvF11SA000",
+//	F21,	"dvF210B000",
+//	F21A,	"dvF210A000",
+//	F21P,	"dvF210P000",
+//
+// prog internal program id
+// model_number what is reported here
+// file3w_model model number used in file format
+// serial first 6 bytes of machine serial number
+// nz non zip
+// fv file format version
+// sp SWPublishVersion
+// cp communication protocol, v3 is what is outlined here, v1 is older
+// dim build volume
+// name human readable model name
+
+//*********************
+// reg keys
+
+Computer\HKEY_CURRENT_USER\Software\XYZmaker
+Computer\HKEY_CURRENT_USER\Software\xyzprinting
+Computer\HKEY_CURRENT_USER\Software\XYZware
+
+Computer\HKEY_CURRENT_USER\Software\XYZware\xyzsetting\DefaultIP
+Computer\HKEY_CURRENT_USER\Software\XYZware\xyzsetting\DefaultPrinter
+
+// track:
+// last printer serial number  // xyzsetting\LastPrinterSN
+// print extruder life  // xyzsetting\EXTRUDER_LIFE
+// last serial port  // xyzsetting\DefaultPort
+
+//*********************
+// commands
+
+XYZv3/query={}
+XYZv3/action={}
+XYZv3/config={}
+XYZv3/upload={filename},{size}{option}
+XYZv3/firmware={filename},{size}
+XYZv3/uploadDidFinish
+
+// Most commands return $ on sucess or E0$ or E1$ on error
+
+//************************
+// Send_Query_command or aboutconnect, SendCmd(), ActionOrder, queryIp (check ExcuteOrder)
+// on wifi any query other than a does not terminate with a $ sign
+// XYZv3/query=
+
+//-------------
+
+
+// Action Order or query all
+XYZv3/query=a
+	b:20
+	c:{448,464,462,448,457,449,414,436,426}
+	d:0,0,0
+	e:0
+	f:1,84090
+	//h:x
+	i:3FM1XPUS5CA68P0591
+	j:9511,0 or j:9511
+	//k:xx
+	l:en
+	m:0,0,0
+	n:daVinci Mini 1  
+	o:p8,t1,c1,a+
+	p:dv1MX0A000
+	s:{"fm":0,"fd":1,"sd":"yes","button":"no","buzzer":"on"} 
+		or s:{"fm":1,"fd":1,"dr":{"top":"off","front":"off"},"sd":"yes","eh":"0","of":"1"}
+	t:1,24,0 or t:1,16
+	v:1.1.1
+	w:1,PMP6PTH6840596 
+		or w:1,--------------
+	z:327
+	//G:{"LastUsed":"len"}
+	L:1,268830,5529,295 
+		or L:1,320700,58543
+	O:{"nozzle":"240","bed":"90"}
+	V:5.1.5
+	//W:{"ssid":"str","bssid":"str","channel":"str","rssiValue":"str","PHY":"str","security":"str"}
+	X:2,GB-0002-0000-TH-68T-0250-5482
+	4:{"wlan":{"ip":"0.0.0.0","ssid":"","channel":"0","MAC":"20::5e:c4:4f:bd"}}
+	$
+
+// da Vinci miniMaker
+XYZv3/query=a
+	b:20
+	c:{428,446,458,425,437,446,404,411,421}
+	d:0,0,0
+	w:1,PMP6PTH6840596
+	e:0
+	f:1,33365
+	i:3FM1XPUS5CA68P0591
+	j:9511,0
+	L:1,365640,7975,4
+	m:0,0,0
+	o:p8,t1,c1,a+
+	p:dv1MX0A000
+	s:{"fm":0,"fd":1,"sd":"yes","button":"no","buzzer":"on"}
+	t:1,20,0
+	v:1.1.1
+	n:daVinci Mini 1
+	X:2,GB-0002-0000-TH-68T-0250-9579
+	l:en
+	z:321
+	$
+
+// da Vinci mini w
+XYZv3/query=a
+	b:20
+	c:{369,379,365,382,382,360,386,380,346}
+	d:0,0,0
+	w:1,--------------
+	e:1073742342,1073742345
+	f:1,-1
+	i:3FM1WPUS5CA6750022
+	j:9511,0
+	L:1,236340,28233,5
+	m:0,0,0
+	o:p8,t1,c1,a+
+	p:dv1MW0A000
+	s:{"fm":0,"fd":0,"sd":"yes","button":"no","buzzer":"on"}
+	t:1,10,0
+	v:1.1.9
+	n:Davinci         
+	X:2,GB-0002-0000-TH-674-0293-28387
+	l:en
+	z:266
+	V:5.0.8
+	4:{"wlan":{"ip":"192.168.1.117","ssid":"TUCKER_HOME","channel":"0","rssiValue":"0","MAC":"54:8c:a0:06:7e:48"}}
+	$
+
+// da Vinci 1.0 Pro
+XYZv3/query=a
+	b:21
+	d:0,0,0
+	e:0
+	f:1,200000
+	i:3F1AWPUS5TH638T072
+	j:9511
+	L:1,320700,58543
+	m:0,0,0
+	o:p8,t1,c1,a-
+	O:{"nozzle":"240","bed":"90"}
+	p:dvF1W0A000
+	s:{"fm":1,"fd":1,"dr":{"top":"off","front":"off"},"sd":"yes","eh":"0","of":"1"}
+	t:1,16
+	v:1.3.8
+	w:1,--------------
+	n:daVinci Pro. 1w
+	X:2,GB-0004-0000-TH-637-0383-38470
+	l:en
+	V:5.1.5
+	4:{"wlan":{"ip":"0.0.0.0","ssid":"","channel":"0","MAC":"20::5e:c4:4f:bd"}}
+	$
+
+// da Vinci 1.1 Plus
+XYZv3/query=a
+	4:192.168.1.126
+	b:--
+	e:2
+	f:1,0
+	i:3F11XPGBXTH5320151
+	j:10
+	L:1,69342,21785
+	n:da Vinci 1.1 Plus
+	o:p8,t1,c0
+	p:dvF110B000
+	t:1,--,--
+	v:1.1.0.19,1.1.7.3,N/A
+	w:1,--------------
+	$
+
+//-----------------
+
+
+// heat bed temperature
+// b:xx
+//   xx - deg C
+XYZv3/query=b 
+	b:20
+	$
+
+// Calibration values, only on miniMaker machines?
+// These are the 9 bed level sensor readings
+// c:{x1,x2,x3,x4,x5,x6,x7,x8,x9}
+XYZv3/query=c
+	c:{448,464,462,448,457,449,414,436,426}
+	$
+
+// print status
+// d:ps,el,es
+//   ps - print percent complete (0-100)
+//   el - print elapsed time (minutes)
+//   es - print estimated time left (minutes)
+//   a value of 0,0,0 indicates no job is running
+XYZv3/query=d
+	d:0,0,0
+	$
+
+// error status
+// e:ec,optional?
+//   ec - some sort of string
+XYZv3/query=e
+	e:0
+	$
+
+	low level error codes (numbers in brackets)
+
+	0003 Print bed heating problem
+	0007 Cartrige 1 chip error
+	0008 Cartrige 1 chip error
+	0010 Print bed heating problem, temp out of range
+	0011 Extruder 1 heating problem, cant heat to target temp
+	0013 Print bed heating problem, temp too high
+	0014 Extruder 1 heating problem, temp too high
+	0015 Extruder 2 heating problem, temp too high
+	0016 Cartridge 1 not installed properly. 
+	0028 Cartridge 1 not installed
+	0029 Cartrige 1 empty
+	0030 X-axis movement abnormalities or bad endstop
+	0031 Y-axis movement abnormalities or bad endstop
+	0032 Z-axis movement abnormalities or bad endstop
+	0033 Turntable movement abnormalities
+	0040 Internal storage error, can not read/write sd card
+	0050 Memory error
+	0051 Internal communication error, Reboot the printer.
+	0052 Extruder storage error, Replace the extruder.
+	0054 Incompatible Nozzle
+	0055 inkjet head error 
+	0056 inkjet data error
+	0057 Unable to detect extruder, Please reinstall the extruder and reconnect the flat cable, then restart the printer.
+	0060 Cartrige 1 empty
+	0201 Connection error between PC and printer
+	5001 Calibration failure
+	5011 Right camera error
+	5013 Left camera error
+	5021 Right scanning laser error
+	5022 Left scanning laser error
+	5023 Turntable error during calibration
+	5031 Storage error during calibration
+
+	F10 (1.0 printers)
+	2: - M_THERMAL_HEATER_OUT_TIMER			(0011) nozzle heater timeout
+	3: - M_THERMAL_BED_OUT_TIMER			(0003) print bed heater timeout
+	4: - M_THERMAL_HEATER_OUT_CONTROL		(0014) nozzle heat controll error
+	5: - M_THERMAL_BED_OUT_CONTROL			(0013) print bed heat controll error
+	6: - L_ERROR_SD_CARD					       corrupt flash drive call Format_SD(1)
+	7: - M_EEPROM_WRITE_ERROR				(0007) eeprom write error
+	8: - M_EEPROM_READ_ERROR				(0008) eeprom read error
+	9: - M_MACHINE_ERROR_X_AXIS				(0030) x axis move error
+	10: - M_MACHINE_ERROR_Y_AXIS			(0031) y axis move error
+	11: - M_MACHINE_ERROR_Z_AXIS			(0032) z axis move error
+	14: - M_FW_UPDATE_ERROR					       firmware update error
+	15: - M_FILAMENT_JAM					       filament jam
+	16: - M_FILAMENT_END					       filament out
+	17: - M_FILAMENT_WRONG					       wrong filament
+	18: - M_FLASHMEMORY_ERROR				(0050) flash memory error
+	20: - M_TOP_DOOR_OPEN					       top door open
+	21: - M_FRONT_DOOR_OPEN					       front door open
+	23: - M_FILAMENT_LOW_TO_EMPTY			       filament low or out
+	24: - M_FILAMENT_END					       filament out
+	27: - M_MACHINE_BUSY					       machine buisy
+	28: - M_NO_CASSETTE						(0028) no filament cassette
+	29: - M_CASSETTE_EMPTY					(0029) filament cassette empty
+	31: - ???								       scanner error
+	32: - ???								       scanner buisy
+
+	F11, F20 (1.1 and 2.0 printers, and all jr/minis?)
+	3: - M_MACHINE_BUSY
+	258: M_THERMAL_BED_OUT_TIMER			(0003)
+	260: M_THERMAL_BED_OUT_CONTROL			(0013)
+	261: L_ERROR_SD_CARD					       flash disk corrupt this.gsettExport.Format_SD(2);
+	264: M_MACHINE_ERROR_X_AXIS				(0030)
+	265: M_MACHINE_ERROR_Y_AXIS				(0031)
+	266: M_MACHINE_ERROR_Z_AXIS				(0032)
+	267: M_FLASHMEMORY_ERROR				(0050)
+	269: L_ERROR_FLASH_RAM					(0051)
+	270: L_ERROR_NOZZLE_EEPROM				(0052)
+	271: L_40W35W_NOZZLE_EEPROM				(0054)
+	513: M_PC_COMMUNICATION_ERROR			(0201)
+	514: M_FW_UPDATE_ERROR
+	523: L_ERROR_SD_CARD
+	524: L_ERROR_SD_CARD
+	1025: M_TOP_DOOR_OPEN
+	1026: M_FRONT_DOOR_OPEN
+
+	536871169: M_THERMAL_HEATER_OUT_TIMER	(0012)
+	536871171: M_THERMAL_HEATER_OUT_CONTROL (0015)
+	536871427: M_FILAMENT_JAM
+	536871429: M_FILAMENT_WRONG
+	536871430: M_NO_CASSETTE				(0028)
+	536871431: M_CASSETTE_EMPTY				(0029)
+	536871432: M_EEPROM_WRITE_ERROR			(0007)
+	536871433: M_EEPROM_READ_ERROR			(0008)
+	536871439: L_FILAMENT_NO_INSTALL
+	536871939: M_FILAMENT_LOW
+	536871940: M_FILAMENT_LOW_TO_EMPTY
+	536871941: M_FILAMENT_END
+
+	1073742081: M_THERMAL_HEATER_OUT_TIMER	(0011)
+	1073742083: M_THERMAL_HEATER_OUT_CONTROL (0014)
+	1073742339: M_FILAMENT_JAM
+	1073742341: M_FILAMENT_WRONG
+	1073742342: M_NO_CASSETTE				(0028)
+	1073742343: M_CASSETTE_EMPTY			(0029)
+	1073742344: M_EEPROM_WRITE_ERROR		(0007)
+	1073742345: M_EEPROM_READ_ERROR			(0008)
+	1073742351: L_FILAMENT_NO_INSTALL
+	1073742851: M_FILAMENT_LOW
+	1073742852: M_FILAMENT_LOW_TO_EMPTY
+	1073742853: M_FILAMENT_END
+
+
+// filament remaining
+// f:ct,len,len2
+//   ct - how many spools on printer, 1 for normal printer
+//   len - filament left in millimeters
+//   len2 - filament num2 left in millimeters, optional
+XYZv3/query=f
+	f:1,84090
+	$
+
+// unused
+XYZv3/query=g
+
+// pla filament loaded
+// h:x
+//   x - > 0 if pla filament in printer
+XYZv3/query=h
+	// not used with miniMaker
+
+// machine serial number
+// i:sn
+//   sn - serial number
+//   note, convert ? characters to - characters when parsing sn
+//   AAAAAABBCCCCCDDDDD
+//   AAAAAA machine id
+//   BB     region (US, etc)
+//   CCCCC ???
+//   DDDDD ??? 
+XYZv3/query=i
+	i:3FM1XPUS5CA68P0591
+	$
+
+// printer status
+// j:st,sb
+//   st - status id
+//   sb - substatus id, optional
+XYZv3/query=j
+	j:9511,0
+	$
+
+   status ID:
+
+   // These don't seem to have substates
+	0    PRINT_INITIAL
+	9500 PRINT_INITIAL
+	1    PRINT_HEATING
+	9501 PRINT_HEATING
+	2    PRINTING
+	9502 PRINTING
+	3    PRINT_CALIBRATING
+	9503 PRINT_CALIBRATING
+	4    PRINT_CALIBRATING_DONE
+	9504 PRINT_CALIBRATING_DONE
+	9505 PRINTING_IN_PROGRESS
+	5    PRINT_COOLING_DONE // start?
+	9506 PRINT_COOLING_DONE
+	6    PRINT_COOLING_END // done?
+	9507 PRINT_COOLING_END
+	7    PRINT_ENDING_PROCESS // start
+	9508 PRINT_ENDING_PROCESS
+	8    PRINT_ENDING_PROCESS_DONE
+	9509 PRINT_ENDING_PROCESS_DONE
+	9    PRINT_JOB_DONE
+	9510 PRINT_JOB_DONE
+	10   PRINT_NONE
+	9511 PRINT_NONE
+	11   PRINT_PREPARE
+	12   PRINT_STOP
+	9512 PRINT_STOP
+	13   PRINT_LOAD_FILAMENT
+	9513 PRINT_LOAD_FILAMENT
+	14   PRINT_UNLOAD_FILAMENT
+	9514 PRINT_UNLOAD_FILAMENT
+	15   PRINT_AUTO_CALIBRATION
+	9515 PRINT_AUTO_CALIBRATION
+	16   PRINT_JOG_MODE
+	9516 PRINT_JOG_MODE
+	17   PRINT_FATAL_ERROR
+	9517 PRINT_FATAL_ERROR
+
+	// I'm assuming all these have substates?
+	30   STATE_PRINTER_BUSY
+	9520 STATE_PRINT_FILE_CHECK
+	9530 STATE_PRINT_LOAD_FIALMENT (substatus 12 14)
+	9531 STATE_PRINT_UNLOAD_FIALMENT (substatus 21 22 24)
+	9532 STATE_PRINT_JOG_MODE
+	9533 STATE_PRINT_FATAL_ERROR
+	9534 STATE_PRINT_HOMING
+	9535 STATE_PRINT_CALIBRATE (substatus 41 42 43 44 45 46 47 48 49)
+	9536 STATE_PRINT_CLEAN_NOZZLE (substatus 52)
+	9537 STATE_PRINT_GET_SD_FILE
+	9538 STATE_PRINT_PRINT_SD_FILE
+	9539 STATE_PRINT_ENGRAVE_PLACE_OBJECT (substatus 30)
+	9540 STATE_PRINT_ADJUST_ZOFFSET
+	9601 STATE_PRINT_PAUSE
+	9602 STATE_PRINT_CANCELLING
+	9700 STATE_PRINT_BUSY
+	9800 STATE_PRINT_SCANNER_IDLE
+	9801 STATE_PRINT_SCANNER_RUNNING
+
+// material type
+// k:xx
+//   xx is material type, in hex?
+//   one of 41 46 47 50 51 54 56
+	switch (FILAMANEE.material)
+	{
+	case 41: return "ABS";
+	case 46: return "TPE";
+	case 47: return "PETG";
+	case 50: return "PLA";
+	case 51: return "PLA";
+	case 54: return "Tough PLA";
+	case 56: return "PVA";
+	default: return "---";
+	}
+
+XYZv3/query=k
+	// not used on miniMaker
+
+// language
+// l:ln
+//   ln is language, one of en, fr, it, de, es, jp
+XYZv3/query=l
+	l:en
+	$
+
+// ?????
+XYZv3/query=m
+	m:0,0,0
+	$
+
+// printer name
+// n:nm
+//   nm is name as a string
+XYZv3/query=n
+	n:daVinci Mini 1
+	$
+
+// print options
+// o:ps,tt,cc,al
+//   ps is package size * 1024
+//   tt ???
+//   cc ???
+//   al is auto leveling on if a+
+XYZv3/query=o
+	o:p8,t1,c1,a+
+	$
+
+// printer model number
+// p:mn
+//   mn is model_number
+XYZv3/query=p
+	p:dv1MX0A000
+	$
+
+// unused
+XYZv3/query=q
+XYZv3/query=r
+
+// machine capabilities?
+// s:{xx,yy...}
+//   xx is one of
+//   button:no
+//   buzzer:on  can use buzzer?
+//   dr:{front:on,top:on}  front/top door 
+//   eh:1  lazer engraver installed
+//   fd:1  ???
+//   fm:1  ???
+//   of:1  open filament allowed
+//   sd:yes  sd card yes or no
+XYZv3/query=s
+	s:{"fm":0,"fd":1,"sd":"yes","button":"no","buzzer":"on"}
+	$
+
+	or
+
+	s:{"fm":1,"fd":1,"dr":{"top":"off","front":"off"},"sd":"yes","eh":"0","of":"1"}
+	$
+
+// extruder temperature
+// t:ss,aa,bb
+//   if ss == 1
+//     aa is extruder temp in C
+//     bb is target temp in C, optional
+//   else
+//     aa is extruder 1 temp
+//     bb is extruder 2 temp
+XYZv3/query=t
+	t:1,20,0
+	$
+
+// unused
+XYZv3/query=u
+
+// firmware version
+// v:en or v:os,ap,en
+//   os is os version string
+//   ap is app version string
+//   en is engine version string (firmware)
+XYZv3/query=v
+	v:1.1.1
+	$
+
+// filament serian number
+// w:id,sn,xx
+//   if id == 1
+//     sn is filament 1 serial number
+//     xx is default filament temp, optional
+//   else
+//     sn is filament 1 serial number
+//     xx is filament 2 serial number
+//
+//   Serial number format
+//   DDMLCMMTTTSSSS
+//   	DD - Dloc
+//   	M - Material
+//	// from here down is opional
+//   	L - Length
+//   	    varies but in general 
+//   	    3 - 120000 mm
+//   	    5 - 185000 mm
+//   	    6 - 240000 mm
+//   	C - color
+//   	MM - Mloc
+//   	TTT - Mdate
+//   	SSSS - serial number, optional
+// examples:
+//	PLA Gold  GBP3OCA64N0017
+//  PLA Green PMP6PTH6840596
+XYZv3/query=w
+	w:1,PMP6PTH6840596
+	$
+
+	switch (FILAMANEE.serial_number[4])
+	{
+	case '0': return "Bronze";
+	case '1': return "Silver";
+	case '2': return "Clear Red";
+	case '3': return "Clear";
+	case '4': return "Bottle Green";
+	case '5': return "Neon Magenta";
+	case '6': return "SteelBlue";
+	case '7': return "Sun Orange";
+	case '8': return "Pearl White";
+	case '9': return "Copper";
+	case 'A': return "Purple";
+	case 'B': return "Blue";
+	case 'C': return "Neon Tangerine";
+	case 'D': return "Viridity";
+	case 'E': return "Olivine";
+	case 'F': return "Gold";
+	case 'G': return "Green";
+	case 'H': return "Neon Green";
+	case 'I': return "Snow White";
+	case 'J': return "Neon Yellow";
+	case 'K': return "Black";
+	case 'L': return "Violet";
+	case 'M': return "Grape Purple";
+	case 'N': return "Purpurine";
+	case 'O': return "Clear Yellow";
+	case 'P': return "Clear Green";
+	case 'Q': return "Clear Tangerine";
+	case 'R': return "Red";
+	case 'S': return "Cyber Yellow";
+	case 'T': return "Tangerine";
+	case 'U': return "Clear Blue";
+	case 'V': return "Clear Purple";
+	case 'W': return "White";
+	case 'X': return "Clear Magenta";
+	case 'Y': return "Yellow";
+	case 'Z': return "Nature";
+
+	case ':':
+	case ';':
+	case '<':
+	case '=':
+	case '>':
+	case '?':
+	case '@':
+	default:
+		return "--";
+	}
+
+// unused
+XYZv3/query=x
+XYZv3/query=y
+
+// z offset, only on miniMaker machines?
+// where z is offset in mm * 100
+XYZv3/query=z
+	z:327
+	$
+
+// unused
+XYZv3/query=A
+XYZv3/query=B
+XYZv3/query=C
+XYZv3/query=D
+XYZv3/query=E
+XYZv3/query=F
+
+// info on last print and filament used?
+// len is length of filament used in last print
+//**** need to see this from a real printer
+XYZv3/query=G
+	G:{"LastUsed":"len"} 
+	$
+
+// unused
+XYZv3/query=H
+XYZv3/query=I
+XYZv3/query=J
+XYZv3/query=K
+
+// Lifetime timers
+// L:xx,ml,el,lt
+//   xx - unknown, set to 1
+//   ml - machine lifetime power on time (minutes)
+//   el - extruder lifetime power on time (minutes) (print time)
+//   lt - last power on time (minutes) (or last print time?), optional
+XYZv3/query=L
+	L:1,268830,5529,295
+	$
+
+// unused
+XYZv3/query=M
+XYZv3/query=N
+
+// target temps?
+// O:{"nozzle":"xx","bed":"yy"}
+//   xx is nozzle target temp in C
+//   yy is bed target temp in C
+XYZv3/query=O
+	O:{"nozzle":"240","bed":"90"}
+	$
+
+// unused
+XYZv3/query=P
+XYZv3/query=Q
+XYZv3/query=R
+XYZv3/query=S
+XYZv3/query=T
+XYZv3/query=U
+
+// wireless adapter firmware version?
+XYZv3/query=V
+	V:5.1.5
+	$
+
+// Ask wifi information, how the network is configured
+//
+// W:{"ssid":"a","bssid":"b","channel":"c","rssiValue":"d","PHY":"e","security":"f"}
+//  a is ssid      // service set id, wireless network name
+//  b is bssid     // basic service set id, mac address of router
+//  c is channel   // 1-14
+//  d is rssiValue // recieved signal strength indicator, 0-20 --, 21-30 poor, 31-40 moderate, 41-?? standard
+//  e is PHY       // physical layer, network subtype? (802.11a, b, g, n, ac, etc)
+//  f is security  // wep, wpa, etc?
+//
+XYZv3/query=W
+	W:{"ssid":"str","bssid":"str","channel":"str","rssiValue":"str","PHY":"str","security":"str"}
+	$
+
+// Nozzle Info
+// X:nt,sn,sn2
+//   nt is nozzle type one of 
+//     3, 84
+//       nozzle diameter 0.3 mm
+//     1, 77, 82
+//       nozzle diameter 0.4 mm
+//     2
+//       nozzle diameter 0.4 mm, dual extruder
+//     54
+//       nozzle diameter 0.6 mm
+//     56 
+//       nozzle diameter 0.8 mm
+//     L, N, H, Q
+//       lazer engraver
+//   sn is serial number in the form xx-xx-xx-xx-xx-xx-yy
+//     where xx is the nozzle serial number
+//     and yy is the total nozzle print time (in minutes)
+//   sn2 is optional second serial number for second nozzle
+XYZv3/query=X
+	X:2,GB-0002-0000-TH-68T-0250-5482
+	$
+
+// unused
+XYZv3/query=Y
+XYZv3/query=Z
+XYZv3/query=0
+XYZv3/query=1
+XYZv3/query=2
+XYZv3/query=3
+
+// Query IP, only machines with network, actual network connection
+// port is always 9100
+//
+// 4:{"wlan":{"ip":"a","ssid":"b","channel":"c","MAC":"d","rssiValue":"e"}}
+//  a is ip         // network ip address of printer
+//  b is ssid       // service set identifyer, wireless network name
+//  c is channel    // 1-14
+//  d is MAC        // mac address of printer
+//  e is rssiValue  // recieved signal strength indicator, 0-20 --, 21-30 poor, 31-40 moderate, 41-?? standard
+XYZv3/query=4
+	4:{"wlan":{"ip":"0.0.0.0","ssid":"","channel":"0","MAC":"20::5e:c4:4f:bd","rssiValue":"num?"}}
+	$
+
+// unused
+XYZv3/query=5
+XYZv3/query=6
+XYZv3/query=7
+XYZv3/query=8
+XYZv3/query=9
+
+//***********************
+// Send_Config_command or SendCfg() (check ExcuteOrder)
+// XYZv3/config=
+// on serial all return ok or E0 followed by $
+// on wifi no terminator is returned
+
+//-------------------------
+// toggle auto level off
+
+XYZv3/config=autolevel:off			// send
+	ok
+	$
+XYZv3/query=os						// send to get status
+	o:p8,t1,c1,a-					// recieve, get state of auto level, why s?
+	s:{"fm":0,"fd":0,"sd":"yes","button":"no","buzzer":"on"} 
+	$
+
+//-------------------------
+// toggle auto level on
+
+XYZv3/config=autolevel:on			// send
+	ok
+	$
+XYZv3/query=os						// send to get status
+	o:p8,t1,c1,a-					// recieve, get state of auto level, why s?
+	s:{"fm":0,"fd":0,"sd":"yes","button":"no","buzzer":"on"}
+	$
+
+//----------------------------------
+// toggle print finish buzzer off
+
+XYZv3/config=buzzer:off				// send
+	ok
+	$
+XYZv3/query=os						// send to get status
+	o:p8,t1,c1,a+					// recieve, get state of buzzer, why o?
+	s:{"fm":0,"fd":0,"sd":"yes","button":"no","buzzer":"off"}
+	$
+
+//----------------------------------
+// toggle print finish buzzer on
+
+XYZv3/config=buzzer:on				// send
+	ok
+	$
+XYZv3/query=os						// send to get status
+	o:p8,t1,c1,a+					// recieve, get state of buzzer, why o?
+	s:{"fm":0,"fd":0,"sd":"yes","button":"no","buzzer":"off"}
+	$
+
+//--------------------------------
+// disconnect from the wifi router
+
+XYZv3/config=disconnectap
+	ok
+	$
+
+//--------------
+//placeobject???
+
+XYZv3/config=engrave:placeobject
+	ok
+	$
+
+//-----------------
+// set energy level
+// where E is energy value (whatever that is, probably lazer engraving energy)
+//****Note, this may be the energy saving level as seen in the jr 3in1, that controls how long the led lights stay on for, in min
+// E seems to range from 0.0 to 0.9 or more likely 0 to 9
+
+XYZv3/config=energy:[E] 
+	ok
+	$
+
+//----------------
+// change language 
+// where XX is one of en, fr, it, de, es, jp
+
+XYZv3/config=lang:[XX] 
+
+XYZv3/config=lang:[en]			// send at startup and when language changes
+	ok							// returns immediately
+	$						
+
+//-----------------------------------
+// update runtime maintanence counter
+// xx == how many hours since last maintanence?
+// can't seem to make it work
+
+XYZv3/config=life:[XX] 
+	// does not return anyting on miniMaker, probably not supported
+
+//--------------------
+// update printer name
+// where N is the name
+
+XYZv3/config=name:[N] 
+	ok
+	$						
+
+//-------------------------
+// manage current print job
+//****FixMe, get details, probably combines with  XYZv3/upload=xxx
+
+XYZv3/config=print[complete] // send to swithc from 'print done' to 'print ready', but be sure the bed is clear before sending this!
+XYZv3/config=print[cancel]
+XYZv3/config=print[pause]
+XYZv3/config=print[resume]
+
+//-----------------------
+// reset printer settings
+
+XYZv3/config=restoredefault:on			// send
+XYZv3/config=energy:[3]					// send, why send this???
+XYZv3/query=os							// send to get status
+	o:p8,t1,c1,a+						// returns status
+	s:{"fm":0,"fd":0,"sd":"yes","button":"no","buzzer":"on"}
+	$  
+
+//-----------------
+// connect wifi
+XYZv3/config=ssid:[WIFIName,Password,AP_Channel] 
+XYZv3/config=ssid:[TUCKER_HOME,aidanandcorianna,1]	// send
+	ok
+	$
+XYZv3/query=4										// send to get status
+	4:{"wlan":{"ip":"192.168.1.117","ssid":"TUCKER_HOME","channel":"0","rssiValue":"0","MAC":"54:8c:a0:06:7e:48"}}
+	$ // recieve
+
+//-----------------
+// get/set z offset or adjusts z offset up or down
+// returns new offset, divide by 100 to get mm, ie
+// where J is offset in mm * 100
+// XYZv3/config=zoffset:set[J]
+
+XYZv3/config=zoffset:get				// send
+	321
+	$							// return zoffset
+
+// then when adjusting
+XYZv3/action=home						// send, only on first adjustment
+	home:{"stat":"start"}
+	$									// return start 
+XYZv3/action=zoffset:up					// send, set zoffset up by one
+XYZv3/config=zoffset:get				// send, request new position
+	321
+	$							// return zoffset
+// also 
+XYZv3/action=zoffset:down				// same as up
+
+// can also set directly with 
+XYZv3/config=zoffset:set[321]			// send 
+	ok
+	$								// return
+
+//-----------------------------------
+// UnlockFilament, send in this order
+// does not seem to work wih miniMaker
+XYZv3/config=pda:[1591]
+XYZv3/config=pdb:[4387]
+XYZv3/config=pdc:[7264]
+XYZv3/config=pde:[8046]
+
+// stat can be:
+// ok, fail, no
+
+//***************************
+// Send_Action_command or SendAct()
+// XYZv3/action=
+
+//--------------
+// calibrate bed
+
+// start
+XYZv3/action=calibratejr:new					// send
+	calibratejr:{"stat":"start"}				// recieve immediately
+	$			
+	calibratejr:{"stat":"pressdetector"}		// recieve immediately
+	$			
+
+// press button to lower detector
+
+XYZv3/action=calibratejr:detectorok				// send
+	calibratejr:{"stat":"processing"}			// recieve immediately
+	$
+
+// wait for 
+	calibratejr:{"stat":"ok",438,453,453,437,445,443,412,420,424} // recieve when done
+	$	
+// or
+	calibratejr:{"stat":"fail"}					// recieve if button not pressed
+	$
+
+// release button to raise detector
+
+XYZv3/action=calibratejr:release				// send to end calibration, xyz sends this before button is released, why?
+	calibratejr:{"stat":"complete"}				// potentially recieve, but when?
+	$
+
+// gets data?  maybe send after ok and before release?
+XYZv3/action=calibratejr:getdata
+
+//-------------
+// clean nozzle
+// send to start heating
+
+XYZv3/action=cleannozzle:new			// send
+	cleannozzle:{"stat":"start"}		// recive immediately
+	$
+
+// loop start
+XYZv3/query=jt							// send
+	j:9536,51<nl>t:1,196,0				// recive immediately, status 'STATE_PRINT_CLEAN_NOZZLE' substate 51 heating?
+	$
+// or
+	j:9536,52<nl>t:1,211,210			// recive immediately, status 'STATE_PRINT_CLEAN_NOZZLE' substate 52 ready?
+	$
+
+// wait for 
+	cleannozzle:{"stat":"complete"}
+	$????
+// or
+	j:9511,0							// returns, state 9511 is 'PRINT_NONE' or the idle state, indicates we are done
+	$
+// or send
+XYZv3/action=cleannozzle:cancel			// send
+//XYZv3/query=a							// xyz queries for this, why?
+	cleannozzle:{"stat":"ok"}			// recieve immediately?
+	$
+// loop end
+
+//-------------
+// home printer
+// send
+XYZv3/action=home					// send
+	home:{"stat":"start"}			// returns immediatley
+	$
+
+// loop start
+XYZv3/query=j						// send
+	j:9534,5						// returns, state 9534 is 'STATE_PRINT_HOMING', substate 5?
+	$
+// or
+	j:9511,0						// returns, state 9511 is 'PRINT_NONE' or the idle state, indicates we are done
+	$
+
+	home:{"stat":"complete"}			// when do we get this? indicates home is finished
+	$????
+// loop end
+
+//--------------------------
+// Jog where LL is step size
+// make sure you have homed first?
+XYZv3/action=jog:{"axis":"x","dir":"-","len":"LL"} 
+XYZv3/action=jog:{"axis":"x","dir":"+","len":"LL"}
+XYZv3/action=jog:{"axis":"y","dir":"-","len":"LL"}
+XYZv3/action=jog:{"axis":"y","dir":"+","len":"LL"}
+XYZv3/action=jog:{"axis":"z","dir":"-","len":"LL"}
+XYZv3/action=jog:{"axis":"z","dir":"+","len":"LL"}
+
+// start
+XYZv3/action=jog:{"axis":"x","dir":"-","len":"10"}		// send
+	jog:{"stat":"start"}			// returns immediately
+	$
+
+// loop start
+XYZv3/query=j						// send
+	j:9532,30						// returns, state 9532 is 'STATE_PRINT_JOG_MODE' substate 30 
+	$
+// or
+	j:9511,0						// returns, state 9511 is 'PRINT_NONE' or the idle state, indicates we are done
+	$
+// or
+	jog:{"stat":"complete"}			// when does this get returned
+	$????
+// loop end
+
+//--------------
+// filament load
+
+// send to start
+XYZv3/action=load:new						// send
+	load:{"stat":"start"}					// return immediately
+	$
+
+// loop start
+XYZv3/query=jt								// send to get status
+	j:9530,11.t:1,205,210					// returns immediately, 
+	$
+// or										// state 9530 is 'STATE_PRINT_LOAD_FIALMENT', 11 is heating up, 12 is loading
+	j:9511,0.t:1,94,0						// state 9511 is 'PRINT_NONE' or the idle state, indicates we are done
+	$
+
+	load:{"stat":"load"}					// transition from heating to loading
+	$
+
+// indicates end
+	load:{"stat":"fail"}					// return, load failed, maybe filament not detected
+	$
+	load:{"stat":"complete"}				// return, load succeeded, sent after a long delay, if you don't send cancel
+	$
+// or state is 9511
+// loop end
+
+// send when filament comes out of nozzle, or to cancel, after heating
+XYZv3/action=load:cancel
+	load:{"stat":"complete"}				// returns immediately, load succeeded
+	$
+
+// send to retry load, can only be sent after load finishes or fails
+XYZv3/action=load:retry						// send
+	load:{"stat":"start"}					// returns immediately
+	$
+	load:{"stat":"heat","extemp":"24"}		// returns immediately, only sent once after a retry
+	$
+
+//----------------
+// filament unload
+
+// to start unload
+XYZv3/action=unload:new							// send
+	unload:{"stat":"start"}						// return immediate
+	$
+
+// loop start
+XYZv3/query=jt									// send
+	j:9531,21.t:1,22,155						// return immediately
+	$
+// or											// state 9531 is 'STATE_PRINT_UNLOAD_FIALMENT', substate is 21 when heating and 22 when unloading?
+	j:9511,0.t:1,94,0							// state 9511 is 'PRINT_NONE' or the idle state, indicates we are done
+	$
+
+// and look for one of these
+	unload:{"stat":"unload"}					// indicates filament is unloading, sent when substate goes from 21 to 22
+	$
+	unload:{"stat":"complete"}					// break after recieving this, or when state goes to 9511
+	$
+// loop end
+
+// send this to cancel
+XYZv3/action=unload:cancel						// cancels unload, available as soon as stat goes to unload
+// returns nothing
+
+// send this to retry
+XYZv3/action=unload:retry						// restarts unload, available when stat goes to complete, or 9511
+	unload:{"stat":"start"}						// return immediatly
+	$
+	unload:{"stat":"heat","extemp":"33"}		// and return immediatly, but only once, is current temp of extruder
+	$
+
+//***************************
+// V3OffineSendata or V3Wirelessdata
+// XYZv3/upload={filename},{size},SaveToSD
+// XYZv3/uploadDidFinish
+// 
+// need to translate G0 commands to G1, xyz does not support G0
+
+/*
+def print_data(self, filename, savetosd=False):
+    with open(filename, 'rb') as f:
+        data = f.read()
+        size = os.fstat(f.fileno()).st_size
+
+    path = FilePath(filename)
+    path.file_type = ".gcode"
+
+    with self.connect() as conn:
+	cmd = "XYZv3/upload=" + path.path + "," + size
+        if savetosd:
+            cmd += ",SaveToSD"
+        conn.writeline(cmd)
+        conn.wait_for_ok()
+
+        chunks = (len(data)+8191) / 8192
+        blocksize = 8192
+        for n in range(0, chunks):
+	    //****FixMe, blocksize should change on the last block to match remaining length!
+            chunk = struct.pack(">l", n) + struct.pack(">l", blocksize) // long (4 bytes) big endian
+            start = 8192*n
+            chunk += data[start:start+8192]
+            chunk += "\x00\x00\x00\x00"
+            conn.write(chunk)
+            conn.wait_for_ok()
+
+        conn.write("XYZv3/uploadDidFinish")
+*/
+
+//***************************
+// UpgradeFJR10
+// XYZv3/firmware={filename},{size},Downgrade
+// XYZv3/uploadDidFinish
+//
+
+/*
+def write_firmware(self, filename, downgrade=False):
+    with open(filename, 'rb') as f:
+        data = f.read()
+        size = os.fstat(f.fileno()).st_size - 16
+        header = data[:16]
+        body = data[16:]
+        # model = header.split("+")[0]
+        # newversion = header.split("+")[1]
+
+    with self.connect() as conn:
+        cmd = "XYZv3/firmware=" + filename + "," + size
+	if(downgrade)
+            cmd += ",Downgrade"
+        conn.writeline(cmd)
+        conn.wait_for_ok()
+
+        chunks = (len(body)+8191) / 8192
+        blocksize = 8192
+        for n in range(0, chunks):
+            chunk = struct.pack(">l", n) + struct.pack(">l", blocksize) // long (4 bytes) big endian)
+            start = 8192*n
+            chunk += body[start:start+8192]
+            chunk += "\x00\x00\x00\x00"
+            conn.write(chunk)
+            conn.wait_for_ok()
+
+        conn.write("XYZv3/uploadDidFinish")
+*/
+
+
+//*****************
+// 3W file format
+/*
+// default setup for miniMaker
+bool isZip = false;
+bool isV5 = false;
+
+WriteChar("3DPFNKG13WTW");  // 12 byte header to id the file
+
+WriteByte(1) // ??
+WriteByte( (isV5) ? 5 : 2); // file version 2 or 5
+WriteByte(0); // pad
+WriteByte(0);
+
+int32 offset = 4684; // offset to zip marker
+WriteWord(offset);
+
+WriteBytes(0, 4684); // padd with 4684 bytes
+
+WriteChar((isZip) ? "TagEa128" : "TagEJ256"); // indicate zip/not zip file
+
+if(isV5)
+  WriteWord(encHeader.length);
+
+int offset2 = 68;
+WriteWord(offset2); // offset to header
+
+if(isV5)
+  WriteWord(1);
+
+WriteCRC32(enc_gcode); // 4 byte CRC32 from all of gcode after encryption
+
+WriteChars(0, (isV5) ? (68-8) : (68-4)); // zero pad to start of header
+// header is 16 byte aligned, but offset does not seem to matter
+
+// everything from start of gcode file to G21 in file goes in header
+// header is AES encrypted in CBC mode with PKCS7 padding (16 byte padding)
+// key is "@xyzprinting.com", IV is 16 zeros
+WriteEncryptHeader(gcode);
+
+// body always starts at 8192
+// body contains a duplicate copy of the header above and in fact is a full gcode file
+WriteChars(0, (8192 - file.CurPos()); // zero pad to start of body
+
+// whole file written out, starting at 8192 to end of file
+// AES encrypted
+// if isZip key is "@xyzprinting.com" and mode is CBC with PKCS7 padding
+// if isZip then zip before encrypting and padd to 8192 bytes?
+// else key is "@xyzprinting.com@xyzprinting.com" and mode is ECB with PKCS7 padding
+WriteEncryptFile(gcode);
+*/
+
+// translate all G0 commands to G1
+// must be in header to make display work
+; filename = temp.3w
+; machine = dv1MX0A000 // change to match current printer
+; print_time = {estimated time in seconds}
+; total_filament = {estimated filament used in mm}
+
+// look for these and translate
+filament_used = // mm
+Filament used:  // m
+
+/*
+// potential header, how many of these matter?
+; filename = {filename} // xyzware_org.3w
+; print_time = 59
+; machine = dv1MX0A000
+; facets = 136
+; total_layers = 2
+; version = 17110616 // or 17081109
+; total_filament = {total_filament} // 50.15
+; nozzle_diameter = 0.40
+; layer_height = 0.30
+; support_material = 0
+; support_material_extruder = 1
+; extruder_filament = 50.15:0.00
+; extruder = 1
+; filamentid = 50,50,
+; materialid = 0,
+; fill_density = 0.10
+; raft_layers = 0
+; support_density = 0.15
+; shells = 2
+; speed = 35.000
+; brim_width = 0.000
+; dimension = 20.00:20.00:0.65
+; fill_pattern = rectilinear
+; perimeter_speed = 15.000
+; small_perimeter_speed = 10.000
+; bridge_speed = 10.000
+; travel_speed = 60.000
+; retract_speed = 15
+; retract_length = 4.000
+; first_layer_speed = 5.000
+; Call_From_APP = XYZware 2.1.26.1
+; speed_limit_open = 1
+; Total computing time = 0.000 sec. 
+; threads = 1
+*/
+
+//********************
+
+
+/*
+JOB_TEST_OK
+LANG
+_END // possibly DAVAPP_END@
+M1:OK,BS:%d,CHK:%d,PKT:%d
+EE1_
+EE1_NG
+LAST JOB ERROR
+LAST JOB OK
+JOB NUMBER
+ERROR TOTAL
+IDLE
+AV
+PROTOCOL:2
+EE%d:
+NG
+L
+NO
+*/
