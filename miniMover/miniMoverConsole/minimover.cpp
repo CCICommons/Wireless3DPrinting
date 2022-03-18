@@ -418,6 +418,8 @@ bool handlePrintFile(const char *path)
 		}
 		printf("\n");
 
+		return true;
+
 		if(xyz.isSuccess())
 		{
 			printf("monitoring print\n");
@@ -965,11 +967,11 @@ int main(int argc, char **argv)
 
 	debugFinalize();
 
-#if defined(_DEBUG) |  defined(DUMP_STATUS)
-	printf("run took %0.4f seconds\n", tm.stopTimer());
-	printf("\nhit any key to continue.\n");
-	getch();
-#endif
+// #if defined(_DEBUG) |  defined(DUMP_STATUS)
+// 	printf("run took %0.4f seconds\n", tm.stopTimer());
+// 	printf("\nhit any key to continue.\n");
+// 	getch();
+// #endif
 
 	return 0;
 }
